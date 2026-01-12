@@ -25,7 +25,7 @@ session, db, T, auth, and tempates are examples of Fixtures.
 Warning: Fixtures MUST be declared with @action.uses({fixtures}) else your app will result in undefined behavior
 """
 
-from py4web import URL, abort, action, redirect, request
+from py4web import URL, abort, action, redirect, request  # noqa: F401
 
 from .models import db
 from loguru import logger
@@ -100,7 +100,7 @@ def client(client_id: int):
 
 @action("active_client", method=["GET"])
 def active_client():
-    rows = db(db.clients.active).select(orderby=~db.clients.created_on)
+    rows = db(db.clients.active == True).select(orderby=~db.clients.created_on)  # noqa: E712
     # Convert Rows to plain dicts for JSON serialization
     rows_list = [r.as_dict() for r in rows]
     return dict(data=rows_list)

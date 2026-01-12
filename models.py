@@ -2,7 +2,7 @@
 This file defines the database models
 """
 
-from pydal.validators import *
+from pydal.validators import *  # noqa: F403
 import datetime as dt
 
 from .common import Field, db
