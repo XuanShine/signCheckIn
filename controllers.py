@@ -25,7 +25,16 @@ session, db, T, auth, and tempates are examples of Fixtures.
 Warning: Fixtures MUST be declared with @action.uses({fixtures}) else your app will result in undefined behavior
 """
 
-from py4web import URL, abort, action, redirect, request  # noqa: F401
+from py4web import URL, abort, redirect, request  # noqa: F401
+from py4web.core import action as real_action
+import sys
+
+def action(*args, **kwargs):
+    """To avoid executing actions during pytest collection."""
+    if 'pytest' in sys.modules:
+        return lambda f: f
+    else:
+        return real_action(*args, **kwargs)
 
 from .models import db
 from loguru import logger
@@ -35,30 +44,28 @@ def disable_all_other_clients():
     db(db.clients.active).update(active=False)
     db.commit()
 
-@action("insert", method=["GET","POST"])
+@action("insert", method=["POST"])
 def insert():
-    if request.method == "POST":
-        data = request.json
-        
-        # Désactiver tous les autres clients
-        disable_all_other_clients()
-        
-        db.clients.insert(
-            nom = data.get("nom", ""),
-            email = data.get("email", ""),
-            telephone = data.get("telephone", ""),
-            checkin = data.get("checkin", ""),
-            checkout = data.get("checkout", ""),
-            cb = data.get("cb", ""),
-            active = True,
-            signed = False
-        )
-        
-        db.commit()
-        logger.info(f"Client {data.get('nom')} inserted and set as active")
-        return "Client inserted successfully"
-    else:
-        return "Hi"
+    """Insère un nouveau client, l’active et désactive les autres clients actifs"""
+    data = request.json
+    
+    # Désactiver tous les autres clients
+    disable_all_other_clients()
+    
+    db.clients.insert(
+        nom = data.get("nom", ""),
+        email = data.get("email", ""),
+        telephone = data.get("telephone", ""),
+        checkin = data.get("checkin", ""),
+        checkout = data.get("checkout", ""),
+        cb = data.get("cb", ""),
+        active = True,
+        signed = False
+    )
+    
+    db.commit()
+    logger.info(f"Client {data.get('nom')} inserted and set as active")
+    return "Client inserted successfully"
 
 @action("modify/<client_id>", method=["POST"])
 def modify(client_id):
