@@ -6,7 +6,7 @@ from py4web import request, HTTP
 from ombott.response import HTTPError
 
 # Import the functions from controllers.py
-from signCheckIn.controllers import insert, modify, list, client, active_client, disable_all_other_clients
+from signCheckIn.controllers import insert, modify, active_client, disable_all_other_clients
 from signCheckIn.models import db
 
 @pytest.fixture(scope="function")
@@ -64,9 +64,28 @@ def test_db_with_data(test_db):
     assert len(active_clients) == 1  # There should be always only one active client
     assert active_clients[0].email == 'fake1@example.com'
     
+    # Temporarily replace the global db
+    import signCheckIn.controllers as controllers
+    original_db = controllers.db
+    controllers.db = test_db
     yield test_db
+    controllers.db = original_db
 
+
+def test_disable_all_other_clients(test_db):
+    # Insert some test clients
+    test_db.clients.insert(nom='Client1', active=True)
+    test_db.clients.insert(nom='Client2', active=True)
+    test_db.commit()
+
+    # Call the function
+    disable_all_other_clients()
+
+    # Check that all are inactive
+    rows = test_db(test_db.clients.active == True).select()
+    assert len(rows) == 0
     
+
 @patch('signCheckIn.controllers.request')
 def test_insert(mock_req, test_db_with_data):
     # Mocking request for POST method
@@ -103,6 +122,40 @@ def test_insert(mock_req, test_db_with_data):
     for each_client in other_clients:
         assert each_client.active is False  # All other clients should be inactive
 
+
+@patch('signCheckIn.controllers.request')
+def test_insert_two_clients(mock_req, test_db):
+    # Mocking request for POST method
+    mock_req.method = "POST"
+    mock_req.json = {
+        'nom': 'New Insert Client',
+        'email': 'new@example.com',
+        'telephone': '1122334455',
+        'checkin': '2023-10-01',
+        'checkout': '2023-10-05',
+        'cb': '4321'
+    }
+
+    # Call the insert function
+    response = insert()
+
+    client1 = test_db(test_db.clients.nom == 'New Insert Client').select().first()
+    assert client1.active == True
+    
+    mock_req.method = "POST"
+    mock_req.json = {
+        'nom': 'New Insert Client2',
+        'checkin': '2023-10-01',
+        'checkout': '2023-10-05',
+    }
+    
+    insert()
+    
+    client1 = test_db(test_db.clients.nom == 'New Insert Client').select().first()
+    client2 = test_db(test_db.clients.nom == 'New Insert Client2').select().first()
+    assert client1.active == False
+    assert client2.active == True
+    
 
 @patch('signCheckIn.controllers.request')
 def test_modify(mock_req, test_db_with_data):
@@ -164,80 +217,29 @@ def test_modify_client_not_found(mock_req, test_db_with_data):
     assert old_active.id == actual_active.id
 
 
+def test_active_client(test_db):
+    test_db.clients.insert(nom='Active Client1', active=False)
+    test_db.clients.insert(nom='Active Client2', active=True)
+    test_db.commit()
+
+    response = active_client()
+
+    assert 'data' in response
+    assert len(response['data']) == 1
+    assert response['data'][0]['nom'] == 'Active Client2'
+    
+    test_db(test_db.clients.active == True).update(active=False)
+
+def test_active_client_no_client_active(test_db):
+    test_db.clients.insert(nom='Active Client1', active=False)
+    test_db.clients.insert(nom='Active Client2', active=False)
+    
+    response = active_client()
+    
+    assert 'data' in response
+    assert len(response['data']) == 0
+
 """
-@pytest.fixture
-def mock_request():
-    return MagicMock()
-
-def test_disable_all_other_clients(test_db):
-    # Insert some test clients
-    test_db.clients.insert(nom='Client1', active=True)
-    test_db.clients.insert(nom='Client2', active=True)
-    test_db.commit()
-
-    # Call the function
-    disable_all_other_clients()
-
-    # Check that all are inactive
-    rows = test_db(test_db.clients.active == True).select()
-    assert len(rows) == 0
-
-@patch('controllers.request')
-def test_insert(mock_req, test_db):
-    mock_req.method = "POST"
-    mock_req.json = {
-        'nom': 'Test Client',
-        'email': 'test@example.com',
-        'telephone': '123456789',
-        'checkin': '2023-01-01',
-        'checkout': '2023-01-02',
-        'cb': '1234'
-    }
-
-    # Insert an existing active client
-    test_db.clients.insert(nom='Existing', active=True)
-    test_db.commit()
-
-    response = insert()
-
-    assert response == "Client inserted successfully"
-
-    # Check db
-    row = test_db(test_db.clients.nom == 'Test Client').select().first()
-    assert row is not None
-    assert row.active == True
-    assert row.signed == False
-
-    # Check that existing is disabled
-    existing = test_db(test_db.clients.nom == 'Existing').select().first()
-    assert existing.active == False
-
-@patch('controllers.request')
-def test_modify(mock_req, test_db):
-    # Insert a client
-    client_id = test_db.clients.insert(nom='Old Name', active=True)
-    test_db.commit()
-
-    mock_req.method = "POST"
-    mock_req.json = {
-        'nom': 'New Name',
-        'email': 'new@example.com',
-        'telephone': '987654321',
-        'checkin': '2023-01-03',
-        'checkout': '2023-01-04',
-        'cb': '5678'
-    }
-
-    response = modify(client_id)
-
-    assert response == "Client modified successfully"
-
-    # Check db
-    row = test_db.clients[client_id]
-    assert row.nom == 'New Name'
-    assert row.active == False  # Modified sets active to False
-    assert row.signed == False
-
 def test_list(test_db):
     # Insert some clients
     test_db.clients.insert(nom='Client1', signed=False)
@@ -262,16 +264,4 @@ def test_client(test_db):
 def test_client_not_found(test_db):
     with pytest.raises(HTTP):
         client(999)
-
-def test_active_client(test_db):
-    test_db.clients.insert(nom='Active Client', active=True)
-    test_db.clients.insert(nom='Inactive Client', active=False)
-    test_db.commit()
-
-    response = active_client()
-
-    assert 'data' in response
-    assert len(response['data']) == 1
-    assert response['data'][0]['nom'] == 'Active Client'
-
 """

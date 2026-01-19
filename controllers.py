@@ -93,8 +93,18 @@ def modify(client_id):
     logger.info(f"Client {client_id} modified and set as not active")
     return "Client modified successfully"
 
+
+@action("active_client", method=["GET"])
+def active_client():
+    rows = db(db.clients.active == True).select(orderby=~db.clients.created_on)  # noqa: E712
+    # Convert Rows to plain dicts for JSON serialization
+    rows_list = [r.as_dict() for r in rows]
+    return dict(data=rows_list)
+
+
+"""
 @action("list", method=["GET"])
-def list():
+def list_clients():
     rows = db(not db.clients.signed).select(orderby=~db.clients.created_on)
     # Convert Rows to plain dicts for JSON serialization
     rows_list = [r.as_dict() for r in rows]
@@ -106,10 +116,5 @@ def client(client_id: int):
     if not row:
         abort(404, "Client not found")
     return dict(data=row.as_dict())
+"""
 
-@action("active_client", method=["GET"])
-def active_client():
-    rows = db(db.clients.active == True).select(orderby=~db.clients.created_on)  # noqa: E712
-    # Convert Rows to plain dicts for JSON serialization
-    rows_list = [r.as_dict() for r in rows]
-    return dict(data=rows_list)
