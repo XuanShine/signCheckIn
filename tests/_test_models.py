@@ -1,7 +1,7 @@
 import pytest
 from pydal import DAL
 import datetime as dt
-from apps.signCheckIn.models import db
+from signCheckIn.models import db
 
 
 @pytest.fixture(scope="module")

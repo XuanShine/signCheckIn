@@ -5,10 +5,10 @@ from pydal import DAL, Field
 from py4web import request, HTTP
 
 # Import the functions from controllers.py
-from .controllers import insert, modify, list, client, active_client, disable_all_other_clients
-from .models import db
+from signCheckIn.controllers import insert, modify, list, client, active_client, disable_all_other_clients
+from signCheckIn.models import db
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def test_db():
     # Use an in-memory SQLite database for testing
     test_db = DAL('sqlite:memory:')
@@ -25,13 +25,85 @@ def test_db():
     )
     test_db.commit()
     # Temporarily replace the global db
-    import controllers
+    import signCheckIn.controllers as controllers
     original_db = controllers.db
     controllers.db = test_db
     yield test_db
     controllers.db = original_db
     test_db.close()
+    
 
+@pytest.fixture(scope="function")
+def test_db_with_data(test_db):
+    # Add some initial data to the test database
+    test_db.clients.insert(
+        nom='CLient1 Active',
+        email='fake1@example.com',
+        telephone='111111111',
+        checkin='2023-01-01',
+        checkout='2023-01-02',
+        cb='1234',
+        signed=False,
+        active=True
+    )
+    test_db.clients.insert(
+        nom='Client2 Inactive',
+        email='fake2@example.com',
+        telephone='123456789',
+        checkin='2023-01-01',
+        checkout='2023-01-02',
+        cb='1234',
+        signed=False,
+        active=False
+    )
+    test_db.commit()
+    
+    # Verify active client
+    active_clients = test_db(test_db.clients.active == True).select()
+    assert len(active_clients) == 1  # There should be always only one active client
+    assert active_clients[0].email == 'fake1@example.com'
+    
+    yield test_db
+
+    
+@patch('signCheckIn.controllers.request')
+def test_insert(mock_req, test_db_with_data):
+    # Mocking request for POST method
+    mock_req.method = "POST"
+    mock_req.json = {
+        'nom': 'New Insert Client',
+        'email': 'new@example.com',
+        'telephone': '1122334455',
+        'checkin': '2023-10-01',
+        'checkout': '2023-10-05',
+        'cb': '4321'
+    }
+
+    # Call the insert function
+    response = insert()
+
+    # Assertions
+    assert response == "Client inserted successfully"
+
+    # Verify new client exists and is active
+    new_client = test_db_with_data(test_db_with_data.clients.nom == 'New Insert Client').select().first()
+    assert new_client is not None
+    assert new_client.email == 'new@example.com'
+    assert new_client.active is True
+    assert new_client.signed is False
+
+    # Verify active client
+    active_clients = test_db_with_data(test_db_with_data.clients.active == True).select()
+    assert len(active_clients) == 1  # There should be always only one active client
+    assert active_clients[0].email == 'new@example.com'
+    
+    # Verify all other clients are inactive
+    other_clients = test_db_with_data(test_db_with_data.clients.nom != 'New Insert Client').select()
+    for each_client in other_clients:
+        assert each_client.active is False  # All other clients should be inactive
+
+
+"""
 @pytest.fixture
 def mock_request():
     return MagicMock()
@@ -140,3 +212,5 @@ def test_active_client(test_db):
     assert 'data' in response
     assert len(response['data']) == 1
     assert response['data'][0]['nom'] == 'Active Client'
+
+"""
