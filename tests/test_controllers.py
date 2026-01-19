@@ -143,6 +143,8 @@ def test_modify(mock_req, test_db_with_data):
 
 @patch('signCheckIn.controllers.request')
 def test_modify_client_not_found(mock_req, test_db_with_data):
+    old_active = test_db_with_data(test_db_with_data.clients.active == True).select().first()
+    
     # Try to modify a non-existent client
     non_existent_id = 999
     
@@ -157,7 +159,9 @@ def test_modify_client_not_found(mock_req, test_db_with_data):
     
     # Verify that active clients are NOT deactivated (since check happens before disable_all_other_clients)
     active_count = test_db_with_data(test_db_with_data.clients.active == True).count()
+    actual_active = test_db_with_data(test_db_with_data.clients.active == True).select().first()
     assert active_count == 1  # Still active
+    assert old_active.id == actual_active.id
 
 
 """
