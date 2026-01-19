@@ -137,7 +137,7 @@ def test_insert_two_clients(mock_req, test_db):
     }
 
     # Call the insert function
-    response = insert()
+    insert()
 
     client1 = test_db(test_db.clients.nom == 'New Insert Client').select().first()
     assert client1.active == True

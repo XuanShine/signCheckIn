@@ -36,8 +36,8 @@ def action(*args, **kwargs):
     else:
         return real_action(*args, **kwargs)
 
-from .models import db
-from loguru import logger
+from .models import db  # noqa: E402
+from loguru import logger  # noqa: E402
 
 def disable_all_other_clients():
     """Désactive tous les autres clients actifs"""
