@@ -69,27 +69,29 @@ def insert():
 
 @action("modify/<client_id>", method=["POST"])
 def modify(client_id):
-    if request.method == "POST":
-        data = request.json
+    """Modifie un client existant, le désactive et désactive les autres clients actifs"""
+    data = request.json
 
-        # Désactiver tous les autres clients
-        disable_all_other_clients()
+    client = db(db.clients.id == client_id).select().first()
+    if not client:
+        abort(404, "Client not found")
+    
+    # Désactiver tous les autres clients
+    disable_all_other_clients()
 
-        db(db.clients.id == client_id).update(
-            nom = data.get("nom", ""),
-            email = data.get("email", ""),
-            telephone = data.get("telephone", ""),
-            checkin = data.get("checkin", ""),
-            checkout = data.get("checkout", ""),
-            cb = data.get("cb", ""),
-            active = False,
-            signed = False
-        )
-        db.commit()
-        logger.info(f"Client {client_id} modified and set as not active")
-        return "Client modified successfully"
-    else:
-        return "Hi"
+    db(db.clients.id == client_id).update(
+        nom = data.get("nom", ""),
+        email = data.get("email", ""),
+        telephone = data.get("telephone", ""),
+        checkin = data.get("checkin", ""),
+        checkout = data.get("checkout", ""),
+        cb = data.get("cb", ""),
+        active = False,
+        signed = False
+    )
+    db.commit()
+    logger.info(f"Client {client_id} modified and set as not active")
+    return "Client modified successfully"
 
 @action("list", method=["GET"])
 def list():

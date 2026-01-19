@@ -3,6 +3,7 @@ from unittest.mock import patch, MagicMock
 from datetime import datetime
 from pydal import DAL, Field
 from py4web import request, HTTP
+from ombott.response import HTTPError
 
 # Import the functions from controllers.py
 from signCheckIn.controllers import insert, modify, list, client, active_client, disable_all_other_clients
@@ -101,6 +102,62 @@ def test_insert(mock_req, test_db_with_data):
     other_clients = test_db_with_data(test_db_with_data.clients.nom != 'New Insert Client').select()
     for each_client in other_clients:
         assert each_client.active is False  # All other clients should be inactive
+
+
+@patch('signCheckIn.controllers.request')
+def test_modify(mock_req, test_db_with_data):
+    # Find a client to modify (e.g., Client2 Inactive)
+    target_client = test_db_with_data(test_db_with_data.clients.nom == 'Client2 Inactive').select().first()
+    client_id = target_client.id
+    
+    mock_req.method = "POST"
+    mock_req.json = {
+        'nom': 'Client2 Modified',
+        'email': 'modified@example.com',
+        'telephone': '999999999',
+        'checkin': '2023-05-01',
+        'checkout': '2023-05-05',
+        'cb': '9999'
+    }
+
+    # Call the modify function
+    # Note: modify deactivates all clients, including the modified one (active=False)
+    response = modify(client_id)
+
+    assert response == "Client modified successfully"
+
+    # Verify fields updated
+    updated_client = test_db_with_data.clients[client_id]
+    assert updated_client.nom == 'Client2 Modified'
+    assert updated_client.email == 'modified@example.com'
+    assert updated_client.active is False
+    
+    # Verify the OTHER previously active client is now inactive
+    previous_active = test_db_with_data(test_db_with_data.clients.nom == 'CLient1 Active').select().first()
+    assert previous_active.active is False
+    
+    # Verify NO active clients exist now
+    count_active = test_db_with_data(test_db_with_data.clients.active == True).count()
+    assert count_active == 0
+
+
+@patch('signCheckIn.controllers.request')
+def test_modify_client_not_found(mock_req, test_db_with_data):
+    # Try to modify a non-existent client
+    non_existent_id = 999
+    
+    mock_req.method = "POST"
+    mock_req.json = {
+        'nom': 'Ghost Client',
+    }
+
+    # Call the modify function - should raise HTTP 404
+    with pytest.raises(HTTPError):
+        modify(non_existent_id)
+    
+    # Verify that active clients are NOT deactivated (since check happens before disable_all_other_clients)
+    active_count = test_db_with_data(test_db_with_data.clients.active == True).count()
+    assert active_count == 1  # Still active
 
 
 """
