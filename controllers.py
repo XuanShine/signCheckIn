@@ -102,7 +102,6 @@ def active_client():
     return dict(data=rows_list)
 
 
-"""
 @action("list", method=["GET"])
 def list_clients():
     rows = db(not db.clients.signed).select(orderby=~db.clients.created_on)
@@ -110,6 +109,8 @@ def list_clients():
     rows_list = [r.as_dict() for r in rows]
     return dict(data=rows_list)
 
+
+"""
 @action("client/<client_id>", method=["GET"])
 def client(client_id: int):
     row = db.clients[client_id]

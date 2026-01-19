@@ -6,7 +6,7 @@ from py4web import request, HTTP
 from ombott.response import HTTPError
 
 # Import the functions from controllers.py
-from signCheckIn.controllers import insert, modify, active_client, disable_all_other_clients
+from signCheckIn.controllers import insert, modify, active_client, disable_all_other_clients, list_clients
 from signCheckIn.models import db
 
 @pytest.fixture(scope="function")
@@ -239,19 +239,18 @@ def test_active_client_no_client_active(test_db):
     assert 'data' in response
     assert len(response['data']) == 0
 
-"""
-def test_list(test_db):
-    # Insert some clients
-    test_db.clients.insert(nom='Client1', signed=False)
-    test_db.clients.insert(nom='Client2', signed=True)
-    test_db.commit()
 
-    response = list()
+def test_list(test_db_with_data):
+    # Insert some clients
+
+    response = list_clients()
 
     assert 'data' in response
-    assert len(response['data']) == 1  # Only unsigned
-    assert response['data'][0]['nom'] == 'Client1'
+    assert len(response['data']) == 2
+    
 
+
+"""
 def test_client(test_db):
     client_id = test_db.clients.insert(nom='Test Client')
     test_db.commit()
