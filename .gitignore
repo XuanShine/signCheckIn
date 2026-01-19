@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
 
 # C extensions
 *.so
@@ -119,3 +120,8 @@ docker-compose.override.yml
 .env.local
 .env.production
 .env.staging
+__pycache__/__init__.cpython-314.pyc
+__pycache__/common.cpython-314.pyc
+__pycache__/controllers.cpython-314.pyc
+__pycache__/models.cpython-314.pyc
+__pycache__/settings.cpython-314.pyc
